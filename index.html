@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="es">
+<html>
 <head>
 <base href="https://scheduler-app.com/">
 <meta charset="UTF-8">
@@ -94,7 +94,7 @@
 
   <transition name="bounce">
     <div v-if="showNotification" class="fixed bottom-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg">
-      ¡Cita agendada con éxito!
+      {{ notificationMessage }}
     </div>
   </transition>
 </div>
@@ -111,19 +111,28 @@ new Vue({
       service: ''
     },
     appointments: [],
-    showNotification: false
+    showNotification: false,
+    notificationMessage: ''
   },
   methods: {
-    scheduleAppointment() {
-      // Simular la creación de una cita
-      const appointment = {
-        id: Date.now(),
-        ...this.newAppointment
-      };
-      this.appointments.push(appointment);
-      this.sendEmailNotification(appointment);
-      this.resetForm();
-      this.showNotificationMessage();
+    async scheduleAppointment() {
+      try {
+        // Crear la cita
+        const appointment = {
+          id: Date.now(),
+          ...this.newAppointment
+        };
+        this.appointments.push(appointment);
+
+        // Enviar correo de notificación
+        await this.sendEmailNotification(appointment);
+
+        this.resetForm();
+        this.showNotificationMessage('¡Cita agendada con éxito! Se ha enviado un correo de confirmación.');
+      } catch (error) {
+        console.error('Error al agendar la cita:', error);
+        this.showNotificationMessage('Hubo un error al agendar la cita. Por favor, inténtalo de nuevo.', 'error');
+      }
     },
     resetForm() {
       this.newAppointment = {
@@ -137,16 +146,44 @@ new Vue({
     formatDate(date) {
       return moment(date).format('DD/MM/YYYY');
     },
-    showNotificationMessage() {
+    showNotificationMessage(message, type = 'success') {
+      this.notificationMessage = message;
       this.showNotification = true;
       setTimeout(() => {
         this.showNotification = false;
-      }, 3000);
+      }, 5000);
     },
-    sendEmailNotification(appointment) {
-      // Simular el envío de un correo electrónico
-      console.log(`Enviando correo a ${appointment.email} para la cita del ${appointment.date} a las ${appointment.time}`);
-      // Aquí iría la lógica real para enviar el correo, por ejemplo usando un servicio de backend
+    async sendEmailNotification(appointment) {
+      try {
+        // Aquí utilizamos un servicio de backend para enviar el correo
+        const response = await axios.post('https://api.scheduler-app.com/send-email', {
+          to: appointment.email,
+          subject: 'Confirmación de Cita - Agenda Pro',
+          body: `
+            Estimado/a ${appointment.clientName},
+
+            Le confirmamos que su cita ha sido agendada con éxito:
+
+            Fecha: ${this.formatDate(appointment.date)}
+            Hora: ${appointment.time}
+            Servicio: ${appointment.service}
+
+            Gracias por confiar en nosotros.
+
+            Atentamente,
+            El equipo de Agenda Pro
+          `
+        });
+
+        if (response.data.success) {
+          console.log('Correo enviado con éxito');
+        } else {
+          throw new Error('Error al enviar el correo');
+        }
+      } catch (error) {
+        console.error('Error al enviar el correo de notificación:', error);
+        throw error;
+      }
     }
   },
   mounted() {
