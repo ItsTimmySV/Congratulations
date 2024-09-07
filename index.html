@@ -1,67 +1,163 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>¡Felicidades!</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            background-color: #f0f0f0;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-            margin: 0;
-        }
-        .container {
-            background-color: white;
-            border-radius: 10px;
-            padding: 40px;
-            text-align: center;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
-            max-width: 80%;
-        }
-        h1 {
-            color: #4CAF50;
-            margin-bottom: 20px;
-        }
-        p {
-            color: #333;
-            font-size: 18px;
-            line-height: 1.6;
-        }
-        .confetti {
-            position: fixed;
-            width: 10px;
-            height: 10px;
-            background-color: #f0f;
-            animation: confetti 5s ease-in-out infinite;
-        }
-        @keyframes confetti {
-            0% { transform: translateY(0) rotate(0deg); }
-            100% { transform: translateY(100vh) rotate(720deg); }
-        }
-    </style>
+<base href="https://scheduler-app.com/">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Agenda Pro - Tu Asistente de Citas</title>
+<link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/vue@2.6.14/dist/vue.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/moment@2.29.1/moment.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+<style>
+  [v-cloak] { display: none; }
+  .fade-enter-active, .fade-leave-active {
+    transition: opacity 0.5s;
+  }
+  .fade-enter, .fade-leave-to {
+    opacity: 0;
+  }
+  .bounce-enter-active {
+    animation: bounce-in 0.5s;
+  }
+  .bounce-leave-active {
+    animation: bounce-in 0.5s reverse;
+  }
+  @keyframes bounce-in {
+    0% {
+      transform: scale(0);
+    }
+    50% {
+      transform: scale(1.2);
+    }
+    100% {
+      transform: scale(1);
+    }
+  }
+</style>
 </head>
-<body>
-    <div class="container">
-        <h1>¡Felicidades!</h1>
-        <p>Has completado todos los pasos necesarios. Ahora puedes cerrar esta ventana y volver a CreadorApp para subir tu Premium Post.</p>
+<body class="bg-gray-100 font-sans">
+<div id="app" v-cloak class="container mx-auto px-4 py-8">
+  <header class="text-center mb-8">
+    <h1 class="text-4xl font-bold text-indigo-600">Agenda Pro</h1>
+    <p class="text-gray-600">Tu asistente personal para gestionar citas</p>
+  </header>
+
+  <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
+    <div class="bg-white rounded-lg shadow-lg p-6">
+      <h2 class="text-2xl font-semibold mb-4 text-indigo-600">Agendar Nueva Cita</h2>
+      <form @submit.prevent="scheduleAppointment" class="space-y-4">
+        <div>
+          <label for="clientName" class="block text-sm font-medium text-gray-700">Nombre del Cliente</label>
+          <input type="text" id="clientName" v-model="newAppointment.clientName" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50">
+        </div>
+        <div>
+          <label for="email" class="block text-sm font-medium text-gray-700">Correo Electrónico</label>
+          <input type="email" id="email" v-model="newAppointment.email" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50">
+        </div>
+        <div>
+          <label for="date" class="block text-sm font-medium text-gray-700">Fecha</label>
+          <input type="date" id="date" v-model="newAppointment.date" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50">
+        </div>
+        <div>
+          <label for="time" class="block text-sm font-medium text-gray-700">Hora</label>
+          <input type="time" id="time" v-model="newAppointment.time" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50">
+        </div>
+        <div>
+          <label for="service" class="block text-sm font-medium text-gray-700">Servicio</label>
+          <select id="service" v-model="newAppointment.service" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50">
+            <option value="">Selecciona un servicio</option>
+            <option value="Consulta">Consulta</option>
+            <option value="Tratamiento">Tratamiento</option>
+            <option value="Seguimiento">Seguimiento</option>
+          </select>
+        </div>
+        <button type="submit" class="w-full bg-indigo-600 text-white py-2 px-4 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-opacity-50 transition duration-150 ease-in-out">
+          Agendar Cita
+        </button>
+      </form>
     </div>
-    <script>
-        function createConfetti() {
-            const colors = ['#ff0000', '#00ff00', '#0000ff', '#ffff00', '#ff00ff', '#00ffff'];
-            for (let i = 0; i < 50; i++) {
-                const confetti = document.createElement('div');
-                confetti.className = 'confetti';
-                confetti.style.left = Math.random() * 100 + 'vw';
-                confetti.style.animationDuration = (Math.random() * 3 + 2) + 's';
-                confetti.style.backgroundColor = colors[Math.floor(Math.random() * colors.length)];
-                document.body.appendChild(confetti);
-            }
-        }
-        window.onload = createConfetti;
-    </script>
+
+    <div class="bg-white rounded-lg shadow-lg p-6">
+      <h2 class="text-2xl font-semibold mb-4 text-indigo-600">Dashboard de Citas</h2>
+      <div class="space-y-4">
+        <transition-group name="fade" tag="div">
+          <div v-for="appointment in appointments" :key="appointment.id" class="bg-gray-50 p-4 rounded-md shadow">
+            <h3 class="font-semibold text-lg">{{ appointment.clientName }}</h3>
+            <p class="text-sm text-gray-600">{{ formatDate(appointment.date) }} a las {{ appointment.time }}</p>
+            <p class="text-sm text-indigo-600">{{ appointment.service }}</p>
+          </div>
+        </transition-group>
+      </div>
+    </div>
+  </div>
+
+  <transition name="bounce">
+    <div v-if="showNotification" class="fixed bottom-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg">
+      ¡Cita agendada con éxito!
+    </div>
+  </transition>
+</div>
+
+<script>
+new Vue({
+  el: '#app',
+  data: {
+    newAppointment: {
+      clientName: '',
+      email: '',
+      date: '',
+      time: '',
+      service: ''
+    },
+    appointments: [],
+    showNotification: false
+  },
+  methods: {
+    scheduleAppointment() {
+      // Simular la creación de una cita
+      const appointment = {
+        id: Date.now(),
+        ...this.newAppointment
+      };
+      this.appointments.push(appointment);
+      this.sendEmailNotification(appointment);
+      this.resetForm();
+      this.showNotificationMessage();
+    },
+    resetForm() {
+      this.newAppointment = {
+        clientName: '',
+        email: '',
+        date: '',
+        time: '',
+        service: ''
+      };
+    },
+    formatDate(date) {
+      return moment(date).format('DD/MM/YYYY');
+    },
+    showNotificationMessage() {
+      this.showNotification = true;
+      setTimeout(() => {
+        this.showNotification = false;
+      }, 3000);
+    },
+    sendEmailNotification(appointment) {
+      // Simular el envío de un correo electrónico
+      console.log(`Enviando correo a ${appointment.email} para la cita del ${appointment.date} a las ${appointment.time}`);
+      // Aquí iría la lógica real para enviar el correo, por ejemplo usando un servicio de backend
+    }
+  },
+  mounted() {
+    // Simular la carga de citas existentes
+    this.appointments = [
+      { id: 1, clientName: 'Ana García', email: 'ana@example.com', date: '2023-06-01', time: '10:00', service: 'Consulta' },
+      { id: 2, clientName: 'Carlos Rodríguez', email: 'carlos@example.com', date: '2023-06-02', time: '11:30', service: 'Tratamiento' },
+      { id: 3, clientName: 'Elena Martínez', email: 'elena@example.com', date: '2023-06-03', time: '15:00', service: 'Seguimiento' }
+    ];
+  }
+});
+</script>
 </body>
 </html>
