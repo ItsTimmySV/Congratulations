@@ -87,11 +87,23 @@
     color: white;
     border: none;
   }
+  #userCounter {
+    position: fixed;
+    top: 10px;
+    right: 10px;
+    background-color: rgba(255, 255, 255, 0.8);
+    padding: 10px;
+    border-radius: 5px;
+    font-size: 16px;
+    z-index: 1000;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+  }
 </style>
 </head>
 <body>
 <div id="map"></div>
 <button id="shareButton">Compartir mi ubicación</button>
+<div id="userCounter">Usuarios compartiendo: 0</div>
 
 <div id="permissionModal">
   <div class="modal-content">
@@ -166,21 +178,31 @@ function removeMarker(userId) {
   }
 }
 
-database.ref('locations').on('value', (snapshot) => {
-  const currentLocations = snapshot.val() || {};
-  
-  // Eliminar marcadores que ya no están en la base de datos
-  Object.keys(markers).forEach(userId => {
-    if (!currentLocations[userId]) {
-      removeMarker(userId);
-    }
-  });
+function updateUserCounter(count) {
+  document.getElementById('userCounter').textContent = `Usuarios compartiendo: ${count}`;
+}
 
-  // Actualizar o agregar marcadores para las ubicaciones actuales
-  Object.entries(currentLocations).forEach(([userId, locationData]) => {
-    const { latitude, longitude } = locationData;
-    updateMarker(userId, latitude, longitude);
-  });
+// Listener para el contador de usuarios en tiempo real
+database.ref('locations').on('value', (snapshot) => {
+  const userCount = snapshot.numChildren();
+  updateUserCounter(userCount);
+});
+
+database.ref('locations').on('child_added', (snapshot) => {
+  const userId = snapshot.key;
+  const { latitude, longitude } = snapshot.val();
+  updateMarker(userId, latitude, longitude);
+});
+
+database.ref('locations').on('child_changed', (snapshot) => {
+  const userId = snapshot.key;
+  const { latitude, longitude } = snapshot.val();
+  updateMarker(userId, latitude, longitude);
+});
+
+database.ref('locations').on('child_removed', (snapshot) => {
+  const userId = snapshot.key;
+  removeMarker(userId);
 });
 
 function shareLocationRealTime() {
