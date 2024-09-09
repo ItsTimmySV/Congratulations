@@ -1,199 +1,263 @@
 <!DOCTYPE html>
 <html>
 <head>
-<base href="https://scheduler-app.com/">
+<base href="https://www.gpsshare.com/app/">
+<title>GPS Compartido en Tiempo Real - Mostrar en Mapa</title>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Agenda Pro - Tu Asistente de Citas</title>
-<link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
-<script src="https://cdn.jsdelivr.net/npm/vue@2.6.14/dist/vue.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/moment@2.29.1/moment.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+<script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
 <style>
-  [v-cloak] { display: none; }
-  .fade-enter-active, .fade-leave-active {
-    transition: opacity 0.5s;
+  body, html {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+    font-family: Arial, sans-serif;
   }
-  .fade-enter, .fade-leave-to {
-    opacity: 0;
+  #map {
+    height: 90vh;
+    width: 100%;
   }
-  .bounce-enter-active {
-    animation: bounce-in 0.5s;
+  #shareButton {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 10px 20px;
+    font-size: 16px;
+    background-color: #4CAF50;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    transition: background-color 0.3s;
   }
-  .bounce-leave-active {
-    animation: bounce-in 0.5s reverse;
+  #shareButton:hover {
+    background-color: #45a049;
   }
-  @keyframes bounce-in {
-    0% {
-      transform: scale(0);
-    }
-    50% {
-      transform: scale(1.2);
-    }
-    100% {
-      transform: scale(1);
-    }
+  .user-marker {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    background-color: #3388ff;
+    border: 2px solid white;
+    border-radius: 50%;
+    color: white;
+    font-weight: bold;
+  }
+  #permissionModal {
+    display: none;
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0,0,0,0.5);
+  }
+  .modal-content {
+    background-color: #fefefe;
+    margin: 15% auto;
+    padding: 20px;
+    border: 1px solid #888;
+    width: 80%;
+    max-width: 500px;
+    border-radius: 5px;
+    text-align: center;
+  }
+  #allowButton, #denyButton {
+    margin: 10px;
+    padding: 10px 20px;
+    font-size: 16px;
+    cursor: pointer;
+  }
+  #allowButton {
+    background-color: #4CAF50;
+    color: white;
+    border: none;
+  }
+  #denyButton {
+    background-color: #f44336;
+    color: white;
+    border: none;
   }
 </style>
 </head>
-<body class="bg-gray-100 font-sans">
-<div id="app" v-cloak class="container mx-auto px-4 py-8">
-  <header class="text-center mb-8">
-    <h1 class="text-4xl font-bold text-indigo-600">Agenda Pro</h1>
-    <p class="text-gray-600">Tu asistente personal para gestionar citas</p>
-  </header>
+<body>
+<div id="map"></div>
+<button id="shareButton">Compartir mi ubicación</button>
 
-  <div class="grid grid-cols-1 md:grid-cols-2 gap-8">
-    <div class="bg-white rounded-lg shadow-lg p-6">
-      <h2 class="text-2xl font-semibold mb-4 text-indigo-600">Agendar Nueva Cita</h2>
-      <form @submit.prevent="scheduleAppointment" class="space-y-4">
-        <div>
-          <label for="clientName" class="block text-sm font-medium text-gray-700">Nombre del Cliente</label>
-          <input type="text" id="clientName" v-model="newAppointment.clientName" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50">
-        </div>
-        <div>
-          <label for="email" class="block text-sm font-medium text-gray-700">Correo Electrónico</label>
-          <input type="email" id="email" v-model="newAppointment.email" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50">
-        </div>
-        <div>
-          <label for="date" class="block text-sm font-medium text-gray-700">Fecha</label>
-          <input type="date" id="date" v-model="newAppointment.date" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50">
-        </div>
-        <div>
-          <label for="time" class="block text-sm font-medium text-gray-700">Hora</label>
-          <input type="time" id="time" v-model="newAppointment.time" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50">
-        </div>
-        <div>
-          <label for="service" class="block text-sm font-medium text-gray-700">Servicio</label>
-          <select id="service" v-model="newAppointment.service" required class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-300 focus:ring focus:ring-indigo-200 focus:ring-opacity-50">
-            <option value="">Selecciona un servicio</option>
-            <option value="Consulta">Consulta</option>
-            <option value="Tratamiento">Tratamiento</option>
-            <option value="Seguimiento">Seguimiento</option>
-          </select>
-        </div>
-        <button type="submit" class="w-full bg-indigo-600 text-white py-2 px-4 rounded-md hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-opacity-50 transition duration-150 ease-in-out">
-          Agendar Cita
-        </button>
-      </form>
-    </div>
-
-    <div class="bg-white rounded-lg shadow-lg p-6">
-      <h2 class="text-2xl font-semibold mb-4 text-indigo-600">Dashboard de Citas</h2>
-      <div class="space-y-4">
-        <transition-group name="fade" tag="div">
-          <div v-for="appointment in appointments" :key="appointment.id" class="bg-gray-50 p-4 rounded-md shadow">
-            <h3 class="font-semibold text-lg">{{ appointment.clientName }}</h3>
-            <p class="text-sm text-gray-600">{{ formatDate(appointment.date) }} a las {{ appointment.time }}</p>
-            <p class="text-sm text-indigo-600">{{ appointment.service }}</p>
-          </div>
-        </transition-group>
-      </div>
-    </div>
+<div id="permissionModal">
+  <div class="modal-content">
+    <h2>Permiso de ubicación</h2>
+    <p>Esta aplicación necesita acceso a tu ubicación para mostrarla en el mapa. ¿Permites que accedamos a tu ubicación?</p>
+    <button id="allowButton">Permitir</button>
+    <button id="denyButton">Denegar</button>
   </div>
-
-  <transition name="bounce">
-    <div v-if="showNotification" class="fixed bottom-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg">
-      {{ notificationMessage }}
-    </div>
-  </transition>
 </div>
 
 <script>
-new Vue({
-  el: '#app',
-  data: {
-    newAppointment: {
-      clientName: '',
-      email: '',
-      date: '',
-      time: '',
-      service: ''
-    },
-    appointments: [],
-    showNotification: false,
-    notificationMessage: ''
-  },
-  methods: {
-    async scheduleAppointment() {
-      try {
-        // Crear la cita
-        const appointment = {
-          id: Date.now(),
-          ...this.newAppointment
-        };
-        this.appointments.push(appointment);
+// Configuración de Firebase (reemplaza con tus propias credenciales)
+const firebaseConfig = {
+  apiKey: "YOUR_API_KEY",
+  authDomain: "your-app.firebaseapp.com",
+  databaseURL: "https://your-app.firebaseio.com",
+  projectId: "your-project-id",
+  storageBucket: "your-app.appspot.com",
+  messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
+  appId: "YOUR_APP_ID"
+};
 
-        // Enviar correo de notificación
-        await this.sendEmailNotification(appointment);
+// Inicializar Firebase
+firebase.initializeApp(firebaseConfig);
+const database = firebase.database();
 
-        this.resetForm();
-        this.showNotificationMessage('¡Cita agendada con éxito! Se ha enviado un correo de confirmación.');
-      } catch (error) {
-        console.error('Error al agendar la cita:', error);
-        this.showNotificationMessage('Hubo un error al agendar la cita. Por favor, inténtalo de nuevo.', 'error');
-      }
-    },
-    resetForm() {
-      this.newAppointment = {
-        clientName: '',
-        email: '',
-        date: '',
-        time: '',
-        service: ''
-      };
-    },
-    formatDate(date) {
-      return moment(date).format('DD/MM/YYYY');
-    },
-    showNotificationMessage(message, type = 'success') {
-      this.notificationMessage = message;
-      this.showNotification = true;
-      setTimeout(() => {
-        this.showNotification = false;
-      }, 5000);
-    },
-    async sendEmailNotification(appointment) {
-      try {
-        // Aquí utilizamos un servicio de backend para enviar el correo
-        const response = await axios.post('https://api.scheduler-app.com/send-email', {
-          to: appointment.email,
-          subject: 'Confirmación de Cita - Agenda Pro',
-          body: `
-            Estimado/a ${appointment.clientName},
+// Inicializar el mapa
+const map = L.map('map').setView([0, 0], 2);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+}).addTo(map);
 
-            Le confirmamos que su cita ha sido agendada con éxito:
+const markers = {};
+let myUserId = null;
+let watchId = null;
+let isSharing = false;
 
-            Fecha: ${this.formatDate(appointment.date)}
-            Hora: ${appointment.time}
-            Servicio: ${appointment.service}
+// Función para generar un ID de usuario único
+function generateUserId() {
+  return 'user_' + Math.random().toString(36).substr(2, 9);
+}
 
-            Gracias por confiar en nosotros.
-
-            Atentamente,
-            El equipo de Agenda Pro
-          `
-        });
-
-        if (response.data.success) {
-          console.log('Correo enviado con éxito');
-        } else {
-          throw new Error('Error al enviar el correo');
-        }
-      } catch (error) {
-        console.error('Error al enviar el correo de notificación:', error);
-        throw error;
-      }
-    }
-  },
-  mounted() {
-    // Simular la carga de citas existentes
-    this.appointments = [
-      { id: 1, clientName: 'Ana García', email: 'ana@example.com', date: '2023-06-01', time: '10:00', service: 'Consulta' },
-      { id: 2, clientName: 'Carlos Rodríguez', email: 'carlos@example.com', date: '2023-06-02', time: '11:30', service: 'Tratamiento' },
-      { id: 3, clientName: 'Elena Martínez', email: 'elena@example.com', date: '2023-06-03', time: '15:00', service: 'Seguimiento' }
-    ];
+// Función para actualizar la ubicación del usuario
+function updateLocation(position) {
+  const { latitude, longitude } = position.coords;
+  
+  if (!myUserId) {
+    myUserId = generateUserId();
   }
+  
+  database.ref('locations/' + myUserId).set({
+    latitude,
+    longitude,
+    timestamp: Date.now()
+  });
+
+  // Actualizar el marcador inmediatamente
+  updateMarker(myUserId, latitude, longitude);
+}
+
+// Función para actualizar el marcador en el mapa
+function updateMarker(userId, latitude, longitude) {
+  if (markers[userId]) {
+    markers[userId].setLatLng([latitude, longitude]);
+  } else {
+    const userMarker = L.divIcon({
+      className: 'user-marker',
+      html: `<span>${userId.slice(-2)}</span>`
+    });
+    markers[userId] = L.marker([latitude, longitude], { icon: userMarker }).addTo(map);
+  }
+
+  // Si es mi marcador, centrar el mapa en él
+  if (userId === myUserId) {
+    map.setView([latitude, longitude], 13);
+  }
+}
+
+// Escuchar cambios en la base de datos
+database.ref('locations').on('value', (snapshot) => {
+  snapshot.forEach((childSnapshot) => {
+    const userId = childSnapshot.key;
+    const { latitude, longitude } = childSnapshot.val();
+    updateMarker(userId, latitude, longitude);
+  });
+});
+
+// Función para compartir ubicación en tiempo real
+function shareLocationRealTime() {
+  if ("geolocation" in navigator) {
+    watchId = navigator.geolocation.watchPosition(updateLocation, (error) => {
+      console.error("Error al obtener la ubicación:", error);
+      alert("No se pudo obtener tu ubicación. Por favor, verifica los permisos de tu navegador.");
+    }, {
+      enableHighAccuracy: true,
+      maximumAge: 0,
+      timeout: 5000
+    });
+    isSharing = true;
+    document.getElementById('shareButton').textContent = 'Dejar de compartir';
+  } else {
+    alert("Tu navegador no soporta geolocalización.");
+  }
+}
+
+// Función para dejar de compartir la ubicación
+function stopSharingLocation() {
+  if (watchId !== null) {
+    navigator.geolocation.clearWatch(watchId);
+    watchId = null;
+  }
+  if (myUserId) {
+    database.ref('locations/' + myUserId).remove();
+    if (markers[myUserId]) {
+      map.removeLayer(markers[myUserId]);
+      delete markers[myUserId];
+    }
+  }
+  isSharing = false;
+  document.getElementById('shareButton').textContent = 'Compartir mi ubicación';
+}
+
+// Función para mostrar el modal de permiso
+function showPermissionModal() {
+  document.getElementById('permissionModal').style.display = 'block';
+}
+
+// Función para ocultar el modal de permiso
+function hidePermissionModal() {
+  document.getElementById('permissionModal').style.display = 'none';
+}
+
+// Función para manejar la concesión de permisos
+function handlePermissionGranted() {
+  hidePermissionModal();
+  shareLocationRealTime();
+}
+
+// Función para manejar la denegación de permisos
+function handlePermissionDenied() {
+  hidePermissionModal();
+  alert("No se puede compartir tu ubicación sin los permisos necesarios.");
+}
+
+// Evento de clic para solicitar permisos y compartir ubicación
+document.getElementById('shareButton').addEventListener('click', () => {
+  if (isSharing) {
+    stopSharingLocation();
+  } else {
+    showPermissionModal();
+  }
+});
+
+// Eventos para los botones del modal
+document.getElementById('allowButton').addEventListener('click', handlePermissionGranted);
+document.getElementById('denyButton').addEventListener('click', handlePermissionDenied);
+
+// Centrar el mapa en la ubicación del usuario al cargar (si se tienen los permisos)
+navigator.geolocation.getCurrentPosition((position) => {
+  const { latitude, longitude } = position.coords;
+  map.setView([latitude, longitude], 13);
+}, () => {
+  console.log("No se pudo obtener la ubicación inicial del usuario.");
+});
+
+// Limpiar el watchPosition cuando el usuario cierra la página
+window.addEventListener('beforeunload', () => {
+  stopSharingLocation();
 });
 </script>
 </body>
