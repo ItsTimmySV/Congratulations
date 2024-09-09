@@ -235,9 +235,13 @@
                 // Añadir nuevos marcadores
                 Object.entries(buses || {}).forEach(([id, data]) => {
                     const { latitude, longitude } = data;
-                    markers[id] = L.marker([latitude, longitude], {icon: busIcon})
-                        .addTo(map)
-                        .bindPopup('Bus de la Ruta 15');
+                    if (markers[id]) {
+                        markers[id].setLatLng([latitude, longitude]);
+                    } else {
+                        markers[id] = L.marker([latitude, longitude], {icon: busIcon})
+                            .addTo(map)
+                            .bindPopup('Bus de la Ruta 15');
+                    }
                 });
 
                 // Actualizar contador de buses activos
