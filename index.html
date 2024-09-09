@@ -280,3 +280,55 @@
 
                 document.getElementById('activeBuses').textContent = `Buses activos: ${Object.keys(buses || {}).length}`;
             });
+        }
+
+        // Event Listeners
+        document.getElementById('driverBtn').addEventListener('click', () => setUserRole('driver'));
+        document.getElementById('userBtn').addEventListener('click', () => setUserRole('user'));
+        document.getElementById('registerBtn').addEventListener('click', showRegisterModal);
+        document.getElementById('loginBtn').addEventListener('click', showLoginModal);
+        document.getElementById('regClose').addEventListener('click', hideRegisterModal);
+        document.getElementById('loginClose').addEventListener('click', hideLoginModal);
+        document.getElementById('regSubmit').addEventListener('click', register);
+        document.getElementById('loginSubmit').addEventListener('click', login);
+        document.getElementById('logoutBtn').addEventListener('click', logout);
+        document.getElementById('shareLocationBtn').addEventListener('click', () => {
+            if (isSharing) {
+                stopSharingLocation();
+            } else {
+                startSharingLocation();
+            }
+        });
+
+        // Observer de autenticación
+        auth.onAuthStateChanged((user) => {
+            if (user && userRole === 'driver') {
+                document.getElementById('userEmail').textContent = user.email;
+                document.getElementById('userInfo').classList.remove('hidden');
+                document.getElementById('authButtons').classList.add('hidden');
+                document.getElementById('driverControls').classList.remove('hidden');
+                showMap();
+            } else if (userRole === 'driver') {
+                document.getElementById('userInfo').classList.add('hidden');
+                document.getElementById('authButtons').classList.remove('hidden');
+                document.getElementById('driverControls').classList.add('hidden');
+            }
+        });
+
+        // Inicialización
+        if (userRole) {
+            document.getElementById('roleSelection').classList.add('hidden');
+            if (userRole === 'user') {
+                showMap();
+            } else {
+                document.getElementById('authButtons').classList.remove('hidden');
+            }
+        }
+
+        // Ajustar el tamaño del mapa cuando cambia el tamaño de la ventana
+        window.addEventListener('resize', () => {
+            if (map) map.invalidateSize();
+        });
+    </script>
+</body>
+</html>
