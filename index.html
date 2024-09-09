@@ -17,7 +17,7 @@
     font-family: Arial, sans-serif;
   }
   #map {
-    height: 90vh;
+    height: 100vh;
     width: 100%;
   }
   #shareButton {
@@ -33,6 +33,8 @@
     border-radius: 5px;
     cursor: pointer;
     transition: background-color 0.3s;
+    z-index: 1000; /* Asegura que el botón esté por encima del mapa */
+    box-shadow: 0 2px 5px rgba(0,0,0,0.2); /* Añade una sombra para mejorar la visibilidad */
   }
   #shareButton:hover {
     background-color: #45a049;
@@ -52,7 +54,7 @@
   #permissionModal {
     display: none;
     position: fixed;
-    z-index: 1000;
+    z-index: 2000; /* Asegura que el modal esté por encima de todo */
     left: 0;
     top: 0;
     width: 100%;
@@ -101,6 +103,7 @@
 </div>
 
 <script>
+// El resto del JavaScript permanece igual
 const firebaseConfig = {
   apiKey: "AIzaSyCE2DEInNal6VIEk8rW7oluVKV3Mv9e-TQ",
   authDomain: "gps-89685.firebaseapp.com",
