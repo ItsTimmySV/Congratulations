@@ -11,16 +11,16 @@
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
     <style>
-        #map { height: calc(100vh - 120px); }
+        #map { height: calc(100vh - 64px); }
     </style>
 </head>
 <body class="bg-gray-100">
-    <nav class="bg-blue-600 p-4 fixed top-0 left-0 right-0 z-50">
+    <nav id="navbar" class="bg-blue-600 p-4">
         <div class="container mx-auto flex justify-between items-center">
             <h1 class="text-white text-xl md:text-2xl font-bold">Rastreo Bus - Ruta 15</h1>
-            <div id="authButtons" class="flex space-x-2">
+            <div id="authButtons" class="hidden">
                 <button id="loginBtn" class="bg-white text-blue-600 px-3 py-1 rounded text-sm">Iniciar Sesión</button>
-                <button id="registerBtn" class="bg-green-500 text-white px-3 py-1 rounded text-sm">Registrarse</button>
+                <button id="registerBtn" class="bg-green-500 text-white px-3 py-1 rounded text-sm ml-2">Registrarse</button>
             </div>
             <div id="userInfo" class="hidden">
                 <span id="userEmail" class="text-white mr-2 text-sm"></span>
@@ -29,15 +29,24 @@
         </div>
     </nav>
 
-    <div class="container mx-auto mt-16 px-4">
-        <div id="map" class="rounded-lg shadow-lg mb-4"></div>
-        <div id="driverControls" class="hidden mb-4">
-            <button id="shareLocationBtn" class="bg-green-500 text-white px-4 py-2 rounded w-full">Compartir Ubicación</button>
+    <div id="roleSelection" class="fixed inset-0 bg-gray-800 bg-opacity-50 flex items-center justify-center z-50">
+        <div class="bg-white p-8 rounded-lg shadow-xl text-center">
+            <h2 class="text-2xl font-bold mb-4">¿Eres conductor o usuario?</h2>
+            <button id="driverBtn" class="bg-blue-500 text-white px-4 py-2 rounded mr-2">Soy Conductor</button>
+            <button id="userBtn" class="bg-green-500 text-white px-4 py-2 rounded">Soy Usuario</button>
         </div>
-        <div id="busInfo" class="bg-white p-4 rounded-lg shadow">
-            <h2 class="text-xl font-bold mb-2">Información de Buses</h2>
-            <p id="activeBuses">Buses activos: 0</p>
+    </div>
+
+    <div id="mapContainer" class="hidden">
+        <div id="map" class="w-full"></div>
+        <div id="driverControls" class="hidden fixed bottom-4 left-1/2 transform -translate-x-1/2">
+            <button id="shareLocationBtn" class="bg-green-500 text-white px-4 py-2 rounded shadow-lg">Compartir Ubicación</button>
         </div>
+    </div>
+
+    <div id="busInfo" class="fixed bottom-4 right-4 bg-white p-4 rounded-lg shadow-lg hidden">
+        <h2 class="text-xl font-bold mb-2">Información de Buses</h2>
+        <p id="activeBuses">Buses activos: 0</p>
     </div>
 
     <!-- Modal de Registro -->
@@ -78,22 +87,34 @@
         const auth = firebase.auth();
         const database = firebase.database();
 
-        // Inicializar mapa
-        const map = L.map('map').setView([13.7942, -88.8965], 8); // Coordenadas de El Salvador
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '© OpenStreetMap contributors'
-        }).addTo(map);
+        let map, markers = {}, isSharing = false, watchId = null;
+        let userRole = localStorage.getItem('userRole');
 
-        const busIcon = L.icon({
-            iconUrl: 'https://cdn-icons-png.flaticon.com/512/3448/3448339.png',
-            iconSize: [32, 32],
-            iconAnchor: [16, 32],
-            popupAnchor: [0, -32]
-        });
+        function initMap() {
+            map = L.map('map').setView([13.7942, -88.8965], 8); // Coordenadas de El Salvador
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap contributors'
+            }).addTo(map);
+        }
 
-        let markers = {};
-        let isSharing = false;
-        let watchId = null;
+        function showMap() {
+            document.getElementById('mapContainer').classList.remove('hidden');
+            document.getElementById('busInfo').classList.remove('hidden');
+            initMap();
+            loadBusLocations();
+        }
+
+        function setUserRole(role) {
+            userRole = role;
+            localStorage.setItem('userRole', role);
+            document.getElementById('roleSelection').classList.add('hidden');
+            
+            if (role === 'driver') {
+                document.getElementById('authButtons').classList.remove('hidden');
+            } else {
+                showMap();
+            }
+        }
 
         // Funciones de autenticación
         function showRegisterModal() {
@@ -191,26 +212,36 @@
             alert("No se pudo obtener tu ubicación. Por favor, verifica los permisos de tu navegador.");
         }
 
-        // Actualizar marcadores en el mapa
-        database.ref('buses').on('value', (snapshot) => {
-            const buses = snapshot.val();
-            // Limpiar marcadores existentes
-            Object.values(markers).forEach(marker => map.removeLayer(marker));
-            markers = {};
-            
-            // Añadir nuevos marcadores
-            Object.entries(buses || {}).forEach(([id, data]) => {
-                const { latitude, longitude } = data;
-                markers[id] = L.marker([latitude, longitude], {icon: busIcon})
-                    .addTo(map)
-                    .bindPopup('Bus de la Ruta 15');
+        function loadBusLocations() {
+            const busIcon = L.icon({
+                iconUrl: 'https://cdn-icons-png.flaticon.com/512/3448/3448339.png',
+                iconSize: [32, 32],
+                iconAnchor: [16, 32],
+                popupAnchor: [0, -32]
             });
 
-            // Actualizar contador de buses activos
-            document.getElementById('activeBuses').textContent = `Buses activos: ${Object.keys(buses || {}).length}`;
-        });
+            database.ref('buses').on('value', (snapshot) => {
+                const buses = snapshot.val();
+                // Limpiar marcadores existentes
+                Object.values(markers).forEach(marker => map.removeLayer(marker));
+                markers = {};
+                
+                // Añadir nuevos marcadores
+                Object.entries(buses || {}).forEach(([id, data]) => {
+                    const { latitude, longitude } = data;
+                    markers[id] = L.marker([latitude, longitude], {icon: busIcon})
+                        .addTo(map)
+                        .bindPopup('Bus de la Ruta 15');
+                });
+
+                // Actualizar contador de buses activos
+                document.getElementById('activeBuses').textContent = `Buses activos: ${Object.keys(buses || {}).length}`;
+            });
+        }
 
         // Event Listeners
+        document.getElementById('driverBtn').addEventListener('click', () => setUserRole('driver'));
+        document.getElementById('userBtn').addEventListener('click', () => setUserRole('user'));
         document.getElementById('registerBtn').addEventListener('click', showRegisterModal);
         document.getElementById('loginBtn').addEventListener('click', showLoginModal);
         document.getElementById('regClose').addEventListener('click', hideRegisterModal);
@@ -228,21 +259,32 @@
 
         // Observer de autenticación
         auth.onAuthStateChanged((user) => {
-            if (user) {
+            if (user && userRole === 'driver') {
                 document.getElementById('userEmail').textContent = user.email;
                 document.getElementById('userInfo').classList.remove('hidden');
                 document.getElementById('authButtons').classList.add('hidden');
                 document.getElementById('driverControls').classList.remove('hidden');
-            } else {
+                showMap();
+            } else if (userRole === 'driver') {
                 document.getElementById('userInfo').classList.add('hidden');
                 document.getElementById('authButtons').classList.remove('hidden');
                 document.getElementById('driverControls').classList.add('hidden');
             }
         });
 
+        // Inicialización
+        if (userRole) {
+            document.getElementById('roleSelection').classList.add('hidden');
+            if (userRole === 'user') {
+                showMap();
+            } else {
+                document.getElementById('authButtons').classList.remove('hidden');
+            }
+        }
+
         // Ajustar el tamaño del mapa cuando cambia el tamaño de la ventana
         window.addEventListener('resize', () => {
-            map.invalidateSize();
+            if (map) map.invalidateSize();
         });
     </script>
 </body>
