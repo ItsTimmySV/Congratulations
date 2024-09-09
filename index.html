@@ -11,37 +11,37 @@
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
     <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
     <style>
-        #map { height: 70vh; }
+        #map { height: calc(100vh - 120px); }
     </style>
 </head>
 <body class="bg-gray-100">
-    <nav class="bg-blue-600 p-4">
-        <div class="container mx-auto flex flex-col sm:flex-row justify-between items-center">
-            <h1 class="text-white text-2xl font-bold mb-2 sm:mb-0">Rastreo Bus - Ruta 15</h1>
-            <div id="authButtons">
-                <button id="loginBtn" class="bg-white text-blue-600 px-4 py-2 rounded">Iniciar Sesión</button>
-                <button id="registerBtn" class="bg-green-500 text-white px-4 py-2 rounded mt-2 sm:mt-0 sm:ml-2">Registrarse</button>
+    <nav class="bg-blue-600 p-4 fixed top-0 left-0 right-0 z-50">
+        <div class="container mx-auto flex justify-between items-center">
+            <h1 class="text-white text-xl md:text-2xl font-bold">Rastreo Bus - Ruta 15</h1>
+            <div id="authButtons" class="flex space-x-2">
+                <button id="loginBtn" class="bg-white text-blue-600 px-3 py-1 rounded text-sm">Iniciar Sesión</button>
+                <button id="registerBtn" class="bg-green-500 text-white px-3 py-1 rounded text-sm">Registrarse</button>
             </div>
             <div id="userInfo" class="hidden">
-                <span id="userEmail" class="text-white mr-4"></span>
-                <button id="logoutBtn" class="bg-red-500 text-white px-4 py-2 rounded">Cerrar Sesión</button>
+                <span id="userEmail" class="text-white mr-2 text-sm"></span>
+                <button id="logoutBtn" class="bg-red-500 text-white px-3 py-1 rounded text-sm">Cerrar Sesión</button>
             </div>
         </div>
     </nav>
 
-    <div class="container mx-auto mt-8 px-4">
-        <div id="map" class="rounded-lg shadow-lg"></div>
-        <div id="driverControls" class="mt-4 hidden">
-            <button id="shareLocationBtn" class="bg-green-500 text-white px-4 py-2 rounded w-full sm:w-auto">Compartir Ubicación</button>
+    <div class="container mx-auto mt-16 px-4">
+        <div id="map" class="rounded-lg shadow-lg mb-4"></div>
+        <div id="driverControls" class="hidden mb-4">
+            <button id="shareLocationBtn" class="bg-green-500 text-white px-4 py-2 rounded w-full">Compartir Ubicación</button>
         </div>
-        <div id="busInfo" class="mt-4 bg-white p-4 rounded-lg shadow">
+        <div id="busInfo" class="bg-white p-4 rounded-lg shadow">
             <h2 class="text-xl font-bold mb-2">Información de Buses</h2>
             <p id="activeBuses">Buses activos: 0</p>
         </div>
     </div>
 
     <!-- Modal de Registro -->
-    <div id="registerModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden items-center justify-center">
+    <div id="registerModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden items-center justify-center z-50">
         <div class="bg-white p-8 rounded-lg shadow-xl w-full max-w-md mx-4">
             <h2 class="text-2xl font-bold mb-4">Registro de Conductor</h2>
             <input id="regEmail" type="email" placeholder="Correo Electrónico" class="w-full p-2 mb-4 border rounded">
@@ -52,7 +52,7 @@
     </div>
 
     <!-- Modal de Inicio de Sesión -->
-    <div id="loginModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden items-center justify-center">
+    <div id="loginModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden items-center justify-center z-50">
         <div class="bg-white p-8 rounded-lg shadow-xl w-full max-w-md mx-4">
             <h2 class="text-2xl font-bold mb-4">Iniciar Sesión</h2>
             <input id="loginEmail" type="email" placeholder="Correo Electrónico" class="w-full p-2 mb-4 border rounded">
@@ -238,6 +238,11 @@
                 document.getElementById('authButtons').classList.remove('hidden');
                 document.getElementById('driverControls').classList.add('hidden');
             }
+        });
+
+        // Ajustar el tamaño del mapa cuando cambia el tamaño de la ventana
+        window.addEventListener('resize', () => {
+            map.invalidateSize();
         });
     </script>
 </body>
