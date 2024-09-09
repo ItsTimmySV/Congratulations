@@ -282,6 +282,46 @@
             });
         }
 
+        // Function to handle background sharing using Service Workers (where supported)
+if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/service-worker.js').then(function (registration) {
+        console.log('Service Worker registered with scope:', registration.scope);
+    }).catch(function (error) {
+        console.log('Service Worker registration failed:', error);
+    });
+}
+
+// Background location sharing
+async function startSharingLocationInBackground() {
+    if (navigator.permissions) {
+        const status = await navigator.permissions.query({ name: 'geolocation' });
+        if (status.state === 'granted' || status.state === 'prompt') {
+            startSharingLocation();
+        } else {
+            console.log("Geolocation permission denied. Location sharing cannot continue.");
+        }
+    }
+}
+
+// Start location sharing in the background automatically
+if (userRole === 'driver' && auth.currentUser) {
+    startSharingLocationInBackground();
+}
+
+// Example Service Worker (service-worker.js)
+// This file handles background functionality in supported browsers
+self.addEventListener('install', (event) => {
+    console.log('Service Worker installing.');
+});
+
+self.addEventListener('activate', (event) => {
+    console.log('Service Worker activated.');
+});
+
+self.addEventListener('fetch', (event) => {
+    console.log('Service Worker fetching:', event.request.url);
+});
+
         // Event Listeners
         document.getElementById('driverBtn').addEventListener('click', () => setUserRole('driver'));
         document.getElementById('userBtn').addEventListener('click', () => setUserRole('user'));
