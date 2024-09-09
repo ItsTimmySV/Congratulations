@@ -1,292 +1,244 @@
 <!DOCTYPE html>
-<html>
+<html lang="es">
 <head>
-<base href="https://www.gpsshare.com/app/">
-<title>GPS Compartido en Tiempo Real - Mostrar en Mapa</title>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
-<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
-<script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
-<style>
-  body, html {
-    margin: 0;
-    padding: 0;
-    height: 100%;
-    font-family: Arial, sans-serif;
-  }
-  #map {
-    height: 100vh;
-    width: 100%;
-  }
-  #shareButton {
-    position: fixed;
-    bottom: 20px;
-    left: 50%;
-    transform: translateX(-50%);
-    padding: 10px 20px;
-    font-size: 16px;
-    background-color: #4CAF50;
-    color: white;
-    border: none;
-    border-radius: 5px;
-    cursor: pointer;
-    transition: background-color 0.3s;
-    z-index: 1000;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-  }
-  #shareButton:hover {
-    background-color: #45a049;
-  }
-  .user-marker {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 30px;
-    height: 30px;
-    background-color: #3388ff;
-    border: 2px solid white;
-    border-radius: 50%;
-    color: white;
-    font-weight: bold;
-  }
-  #permissionModal {
-    display: none;
-    position: fixed;
-    z-index: 2000;
-    left: 0;
-    top: 0;
-    width: 100%;
-    height: 100%;
-    background-color: rgba(0,0,0,0.5);
-  }
-  .modal-content {
-    background-color: #fefefe;
-    margin: 15% auto;
-    padding: 20px;
-    border: 1px solid #888;
-    width: 80%;
-    max-width: 500px;
-    border-radius: 5px;
-    text-align: center;
-  }
-  #allowButton, #denyButton {
-    margin: 10px;
-    padding: 10px 20px;
-    font-size: 16px;
-    cursor: pointer;
-  }
-  #allowButton {
-    background-color: #4CAF50;
-    color: white;
-    border: none;
-  }
-  #denyButton {
-    background-color: #f44336;
-    color: white;
-    border: none;
-  }
-  #userCounter {
-    position: fixed;
-    top: 10px;
-    right: 10px;
-    background-color: rgba(255, 255, 255, 0.8);
-    padding: 10px;
-    border-radius: 5px;
-    font-size: 16px;
-    z-index: 1000;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.2);
-  }
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rastreo de Bus - Ruta 15</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/leaflet@1.7.1/dist/leaflet.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.7.1/dist/leaflet.css" />
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-app.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-database.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/8.10.0/firebase-auth.js"></script>
+    <style>
+        #map { height: 400px; }
+    </style>
 </head>
-<body>
-<div id="map"></div>
-<button id="shareButton">Compartir mi ubicación</button>
-<div id="userCounter">Usuarios compartiendo: 0</div>
+<body class="bg-gray-100">
+    <nav class="bg-blue-600 p-4">
+        <div class="container mx-auto flex justify-between items-center">
+            <h1 class="text-white text-2xl font-bold">Rastreo Bus - Ruta 15</h1>
+            <div id="authButtons">
+                <button id="loginBtn" class="bg-white text-blue-600 px-4 py-2 rounded">Iniciar Sesión</button>
+                <button id="registerBtn" class="bg-green-500 text-white px-4 py-2 rounded ml-2">Registrarse</button>
+            </div>
+            <div id="userInfo" class="hidden">
+                <span id="userEmail" class="text-white mr-4"></span>
+                <button id="logoutBtn" class="bg-red-500 text-white px-4 py-2 rounded">Cerrar Sesión</button>
+            </div>
+        </div>
+    </nav>
 
-<div id="permissionModal">
-  <div class="modal-content">
-    <h2>Permiso de ubicación</h2>
-    <p>Esta aplicación necesita acceso a tu ubicación para mostrarla en el mapa. ¿Permites que accedamos a tu ubicación?</p>
-    <button id="allowButton">Permitir</button>
-    <button id="denyButton">Denegar</button>
-  </div>
-</div>
+    <div class="container mx-auto mt-8">
+        <div id="map" class="rounded-lg shadow-lg"></div>
+        <div id="driverControls" class="mt-4 hidden">
+            <button id="shareLocationBtn" class="bg-green-500 text-white px-4 py-2 rounded">Compartir Ubicación</button>
+        </div>
+        <div id="busInfo" class="mt-4 bg-white p-4 rounded-lg shadow">
+            <h2 class="text-xl font-bold mb-2">Información de Buses</h2>
+            <p id="activeBuses">Buses activos: 0</p>
+        </div>
+    </div>
 
-<script>
-const firebaseConfig = {
-  apiKey: "AIzaSyCE2DEInNal6VIEk8rW7oluVKV3Mv9e-TQ",
-  authDomain: "gps-89685.firebaseapp.com",
-  projectId: "gps-89685",
-  storageBucket: "gps-89685.appspot.com",
-  messagingSenderId: "850380730343",
-  appId: "1:850380730343:web:35d065df67b39ef7b81742"
-};
+    <!-- Modal de Registro -->
+    <div id="registerModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden items-center justify-center">
+        <div class="bg-white p-8 rounded-lg shadow-xl">
+            <h2 class="text-2xl font-bold mb-4">Registro de Conductor</h2>
+            <input id="regEmail" type="email" placeholder="Correo Electrónico" class="w-full p-2 mb-4 border rounded">
+            <input id="regPassword" type="password" placeholder="Contraseña" class="w-full p-2 mb-4 border rounded">
+            <button id="regSubmit" class="w-full bg-blue-500 text-white p-2 rounded">Registrarse</button>
+            <button id="regClose" class="w-full mt-2 bg-gray-300 text-gray-800 p-2 rounded">Cerrar</button>
+        </div>
+    </div>
 
-firebase.initializeApp(firebaseConfig);
-const database = firebase.database();
+    <!-- Modal de Inicio de Sesión -->
+    <div id="loginModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden items-center justify-center">
+        <div class="bg-white p-8 rounded-lg shadow-xl">
+            <h2 class="text-2xl font-bold mb-4">Iniciar Sesión</h2>
+            <input id="loginEmail" type="email" placeholder="Correo Electrónico" class="w-full p-2 mb-4 border rounded">
+            <input id="loginPassword" type="password" placeholder="Contraseña" class="w-full p-2 mb-4 border rounded">
+            <button id="loginSubmit" class="w-full bg-blue-500 text-white p-2 rounded">Iniciar Sesión</button>
+            <button id="loginClose" class="w-full mt-2 bg-gray-300 text-gray-800 p-2 rounded">Cerrar</button>
+        </div>
+    </div>
 
-const map = L.map('map').setView([0, 0], 2);
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-  attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-}).addTo(map);
+    <script>
+        // Configuración de Firebase
+        const firebaseConfig = {
+            apiKey: "AIzaSyCE2DEInNal6VIEk8rW7oluVKV3Mv9e-TQ",
+            authDomain: "gps-89685.firebaseapp.com",
+            projectId: "gps-89685",
+            storageBucket: "gps-89685.appspot.com",
+            messagingSenderId: "850380730343",
+            appId: "1:850380730343:web:35d065df67b39ef7b81742"
+        };
 
-const markers = {};
-let myUserId = null;
-let watchId = null;
-let isSharing = false;
-let lastKnownPosition = null;
+        // Inicializar Firebase
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const database = firebase.database();
 
-function generateUserId() {
-  return 'user_' + Math.random().toString(36).substr(2, 9);
-}
+        // Inicializar mapa
+        const map = L.map('map').setView([9.9281, -84.0907], 13); // Coordenadas de San José, Costa Rica
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '© OpenStreetMap contributors'
+        }).addTo(map);
 
-function updateLocation(position) {
-  const { latitude, longitude } = position.coords;
-  lastKnownPosition = { latitude, longitude };
-  
-  if (!myUserId) {
-    myUserId = generateUserId();
-  }
-  
-  database.ref('locations/' + myUserId).set({
-    latitude,
-    longitude,
-    timestamp: Date.now()
-  });
+        const busIcon = L.icon({
+            iconUrl: 'https://cdn-icons-png.flaticon.com/512/3448/3448339.png',
+            iconSize: [32, 32],
+            iconAnchor: [16, 32],
+            popupAnchor: [0, -32]
+        });
 
-  updateMarker(myUserId, latitude, longitude);
-}
+        const markers = {};
+        let isSharing = false;
+        let watchId = null;
 
-function updateMarker(userId, latitude, longitude) {
-  if (markers[userId]) {
-    markers[userId].setLatLng([latitude, longitude]);
-  } else {
-    const userMarker = L.divIcon({
-      className: 'user-marker',
-      html: `<span>${userId.slice(-2)}</span>`
-    });
-    markers[userId] = L.marker([latitude, longitude], { icon: userMarker }).addTo(map);
-  }
-}
+        // Funciones de autenticación
+        function showRegisterModal() {
+            document.getElementById('registerModal').style.display = 'flex';
+        }
 
-function removeMarker(userId) {
-  if (markers[userId]) {
-    map.removeLayer(markers[userId]);
-    delete markers[userId];
-  }
-}
+        function hideRegisterModal() {
+            document.getElementById('registerModal').style.display = 'none';
+        }
 
-function updateUserCounter(count) {
-  document.getElementById('userCounter').textContent = `Usuarios compartiendo: ${count}`;
-}
+        function showLoginModal() {
+            document.getElementById('loginModal').style.display = 'flex';
+        }
 
-// Listener para el contador de usuarios en tiempo real
-database.ref('locations').on('value', (snapshot) => {
-  const userCount = snapshot.numChildren();
-  updateUserCounter(userCount);
-});
+        function hideLoginModal() {
+            document.getElementById('loginModal').style.display = 'none';
+        }
 
-database.ref('locations').on('child_added', (snapshot) => {
-  const userId = snapshot.key;
-  const { latitude, longitude } = snapshot.val();
-  updateMarker(userId, latitude, longitude);
-});
+        function register() {
+            const email = document.getElementById('regEmail').value;
+            const password = document.getElementById('regPassword').value;
+            auth.createUserWithEmailAndPassword(email, password)
+                .then((userCredential) => {
+                    hideRegisterModal();
+                    alert('Registro exitoso');
+                })
+                .catch((error) => {
+                    alert('Error en el registro: ' + error.message);
+                });
+        }
 
-database.ref('locations').on('child_changed', (snapshot) => {
-  const userId = snapshot.key;
-  const { latitude, longitude } = snapshot.val();
-  updateMarker(userId, latitude, longitude);
-});
+        function login() {
+            const email = document.getElementById('loginEmail').value;
+            const password = document.getElementById('loginPassword').value;
+            auth.signInWithEmailAndPassword(email, password)
+                .then((userCredential) => {
+                    hideLoginModal();
+                })
+                .catch((error) => {
+                    alert('Error en el inicio de sesión: ' + error.message);
+                });
+        }
 
-database.ref('locations').on('child_removed', (snapshot) => {
-  const userId = snapshot.key;
-  removeMarker(userId);
-});
+        function logout() {
+            auth.signOut().then(() => {
+                document.getElementById('userInfo').classList.add('hidden');
+                document.getElementById('authButtons').classList.remove('hidden');
+                document.getElementById('driverControls').classList.add('hidden');
+                stopSharingLocation();
+            }).catch((error) => {
+                console.error('Error al cerrar sesión:', error);
+            });
+        }
 
-function shareLocationRealTime() {
-  if ("geolocation" in navigator) {
-    watchId = navigator.geolocation.watchPosition(updateLocation, handleLocationError, {
-      enableHighAccuracy: true,
-      maximumAge: 0,
-      timeout: 5000
-    });
-    isSharing = true;
-    document.getElementById('shareButton').textContent = 'Dejar de compartir';
-  } else {
-    alert("Tu navegador no soporta geolocalización.");
-  }
-}
+        // Funciones de compartir ubicación
+        function startSharingLocation() {
+            if ("geolocation" in navigator) {
+                watchId = navigator.geolocation.watchPosition(updateLocation, handleLocationError, {
+                    enableHighAccuracy: true,
+                    maximumAge: 0,
+                    timeout: 5000
+                });
+                isSharing = true;
+                document.getElementById('shareLocationBtn').textContent = 'Dejar de Compartir';
+            } else {
+                alert("Tu navegador no soporta geolocalización.");
+            }
+        }
 
-function handleLocationError(error) {
-  console.error("Error al obtener la ubicación:", error);
-  if (lastKnownPosition) {
-    updateLocation(lastKnownPosition);
-  } else {
-    alert("No se pudo obtener tu ubicación. Por favor, verifica los permisos de tu navegador.");
-  }
-}
+        function stopSharingLocation() {
+            if (watchId !== null) {
+                navigator.geolocation.clearWatch(watchId);
+                watchId = null;
+            }
+            if (auth.currentUser) {
+                database.ref('buses/' + auth.currentUser.uid).remove();
+            }
+            isSharing = false;
+            document.getElementById('shareLocationBtn').textContent = 'Compartir Ubicación';
+        }
 
-function stopSharingLocation() {
-  if (watchId !== null) {
-    navigator.geolocation.clearWatch(watchId);
-    watchId = null;
-  }
-  if (myUserId) {
-    database.ref('locations/' + myUserId).remove()
-      .then(() => {
-        removeMarker(myUserId);
-        myUserId = null;
-        isSharing = false;
-        lastKnownPosition = null;
-        document.getElementById('shareButton').textContent = 'Compartir mi ubicación';
-      })
-      .catch((error) => {
-        console.error("Error al eliminar la ubicación de la base de datos:", error);
-      });
-  }
-}
+        function updateLocation(position) {
+            const { latitude, longitude } = position.coords;
+            if (auth.currentUser) {
+                database.ref('buses/' + auth.currentUser.uid).set({
+                    latitude,
+                    longitude,
+                    timestamp: Date.now()
+                });
+            }
+        }
 
-function showPermissionModal() {
-  document.getElementById('permissionModal').style.display = 'block';
-}
+        function handleLocationError(error) {
+            console.error("Error al obtener la ubicación:", error);
+            alert("No se pudo obtener tu ubicación. Por favor, verifica los permisos de tu navegador.");
+        }
 
-function hidePermissionModal() {
-  document.getElementById('permissionModal').style.display = 'none';
-}
+        // Actualizar marcadores en el mapa
+        database.ref('buses').on('value', (snapshot) => {
+            const buses = snapshot.val();
+            // Limpiar marcadores existentes
+            Object.values(markers).forEach(marker => map.removeLayer(marker));
+            markers = {};
+            
+            // Añadir nuevos marcadores
+            Object.entries(buses || {}).forEach(([id, data]) => {
+                const { latitude, longitude } = data;
+                markers[id] = L.marker([latitude, longitude], {icon: busIcon})
+                    .addTo(map)
+                    .bindPopup('Bus de la Ruta 15');
+            });
 
-function handlePermissionGranted() {
-  hidePermissionModal();
-  shareLocationRealTime();
-}
+            // Actualizar contador de buses activos
+            document.getElementById('activeBuses').textContent = `Buses activos: ${Object.keys(buses || {}).length}`;
+        });
 
-function handlePermissionDenied() {
-  hidePermissionModal();
-  alert("No se puede compartir tu ubicación sin los permisos necesarios.");
-}
+        // Event Listeners
+        document.getElementById('registerBtn').addEventListener('click', showRegisterModal);
+        document.getElementById('loginBtn').addEventListener('click', showLoginModal);
+        document.getElementById('regClose').addEventListener('click', hideRegisterModal);
+        document.getElementById('loginClose').addEventListener('click', hideLoginModal);
+        document.getElementById('regSubmit').addEventListener('click', register);
+        document.getElementById('loginSubmit').addEventListener('click', login);
+        document.getElementById('logoutBtn').addEventListener('click', logout);
+        document.getElementById('shareLocationBtn').addEventListener('click', () => {
+            if (isSharing) {
+                stopSharingLocation();
+            } else {
+                startSharingLocation();
+            }
+        });
 
-document.getElementById('shareButton').addEventListener('click', () => {
-  if (isSharing) {
-    stopSharingLocation();
-  } else {
-    showPermissionModal();
-  }
-});
-
-document.getElementById('allowButton').addEventListener('click', handlePermissionGranted);
-document.getElementById('denyButton').addEventListener('click', handlePermissionDenied);
-
-navigator.geolocation.getCurrentPosition((position) => {
-  const { latitude, longitude } = position.coords;
-  map.setView([latitude, longitude], 13);
-}, () => {
-  console.log("No se pudo obtener la ubicación inicial del usuario.");
-});
-
-window.addEventListener('beforeunload', () => {
-  stopSharingLocation();
-});
-</script>
+        // Observer de autenticación
+        auth.onAuthStateChanged((user) => {
+            if (user) {
+                document.getElementById('userEmail').textContent = user.email;
+                document.getElementById('userInfo').classList.remove('hidden');
+                document.getElementById('authButtons').classList.add('hidden');
+                document.getElementById('driverControls').classList.remove('hidden');
+            } else {
+                document.getElementById('userInfo').classList.add('hidden');
+                document.getElementById('authButtons').classList.remove('hidden');
+                document.getElementById('driverControls').classList.add('hidden');
+            }
+        });
+    </script>
 </body>
 </html>
