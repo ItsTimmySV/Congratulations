@@ -157,14 +157,28 @@ function updateMarker(userId, latitude, longitude) {
     });
     markers[userId] = L.marker([latitude, longitude], { icon: userMarker }).addTo(map);
   }
+}
 
-  // Ya no centramos el mapa automáticamente
+function removeMarker(userId) {
+  if (markers[userId]) {
+    map.removeLayer(markers[userId]);
+    delete markers[userId];
+  }
 }
 
 database.ref('locations').on('value', (snapshot) => {
-  snapshot.forEach((childSnapshot) => {
-    const userId = childSnapshot.key;
-    const { latitude, longitude } = childSnapshot.val();
+  const currentLocations = snapshot.val() || {};
+  
+  // Eliminar marcadores que ya no están en la base de datos
+  Object.keys(markers).forEach(userId => {
+    if (!currentLocations[userId]) {
+      removeMarker(userId);
+    }
+  });
+
+  // Actualizar o agregar marcadores para las ubicaciones actuales
+  Object.entries(currentLocations).forEach(([userId, locationData]) => {
+    const { latitude, longitude } = locationData;
     updateMarker(userId, latitude, longitude);
   });
 });
@@ -198,15 +212,18 @@ function stopSharingLocation() {
     watchId = null;
   }
   if (myUserId) {
-    database.ref('locations/' + myUserId).remove();
-    if (markers[myUserId]) {
-      map.removeLayer(markers[myUserId]);
-      delete markers[myUserId];
-    }
+    database.ref('locations/' + myUserId).remove()
+      .then(() => {
+        removeMarker(myUserId);
+        myUserId = null;
+        isSharing = false;
+        lastKnownPosition = null;
+        document.getElementById('shareButton').textContent = 'Compartir mi ubicación';
+      })
+      .catch((error) => {
+        console.error("Error al eliminar la ubicación de la base de datos:", error);
+      });
   }
-  isSharing = false;
-  lastKnownPosition = null;
-  document.getElementById('shareButton').textContent = 'Compartir mi ubicación';
 }
 
 function showPermissionModal() {
